@@ -1,11 +1,14 @@
-const express = require('express');
-const path = require('path');
-const data = require('./db/db.json');
-const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
-const { networkInterfaces } = require('os');
-const noteList = []
+const express = require("express");
+const path = require("path");
+// const data = require('./db/db.json');
+const { v4: uuidv4 } = require("uuid");
+const fs = require("fs");
 
+const readNotes = () => {
+  const noteLists = fs.readFileSync("./db/db.json");
+  let noteList = JSON.parse(noteLists);
+  return noteList;
+};
 
 const app = express();
 
@@ -13,53 +16,53 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.static("public"));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
-app.get('/notes', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/notes.html'));
-});
-
-app.get('/api/notes', (req, res) => res.json(noteList));
-
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
+app.get("/notes", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/notes.html"));
 });
 
-
-
-app.post('/api/notes', (req, res) => {
-   const newNote = req.body;
-   newNote.id = uuidv4();
-   console.log(newNote)
-    if (newNote){
-      // class Note {
-      //   constructor(title, text, id){
-      //     newNote.title = title,
-      //     newNote.text = text,
-      //     newNote.id = id
-      //   }
-      // };
-      // noteList.add(new Note (newNote))
-      noteList.push(newNote);
-      const notes = JSON.stringify(noteList)
-      // const notes2 =JSON.parse(newNote)
-      console.log(noteList)
-      // console.log(notes2)
-
-      res.json(noteList); 
-    }
+app.get("/api/notes", (req, res) => {
+  const data = readNotes();
+  res.json(data);
 });
-fs.appendFile('./db/db.json', `${noteList}`, (err) =>
-    err ? console.error(err) : console.log('Commit logged!')
-);
-// app.delete('api/notes/:id', (req, res) => {
 
-// })
-app.delete('/api/notes/:id', (req, res) => {
-  res.send("DELETE Request Called")
-})
+app.post("/api/notes", (req, res) => {
+  const newNote = req.body;
+  newNote.id = uuidv4();
+  const noteList = readNotes();
+  if (newNote) {
+    noteList.push(newNote);
+    let note = JSON.stringify(noteList, null, 2);
+    fs.writeFile("./db/db.json", note, (err) =>
+      err ? console.error(err) : console.log("Commit logged!")
+    );
+    res.json(note);
+  }
+});
+
+app.delete("/api/notes/:id", (req, res) => {
+  const noteList = readNotes();
+  const noteId = req.params.id;
+  const updatedNotes = noteList.filter((note) => noteId !== note.id);
+  let note = JSON.stringify(updatedNotes, null, 2);
+  fs.writeFile("./db/db.json", note, (err) =>
+    err ? console.error(err) : console.log("Commit logged!")
+  );
+  res.send(updatedNotes);
+});
+app.post("/api/clear", (req, res) => {
+  noteList.length = 0;
+
+  res.json({ ok: true });
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
 
 app.listen(PORT, () => {
   console.log(`App listening on PORT: http://localhost:${PORT}`);
